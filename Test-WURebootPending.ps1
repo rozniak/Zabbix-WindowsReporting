@@ -15,4 +15,11 @@
     Website: https://oddmatics.uk
 #>
 
-return Test-Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired"
+if (Test-Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired")
+{
+    return 1;
+}
+else
+{
+    return 0;
+}
