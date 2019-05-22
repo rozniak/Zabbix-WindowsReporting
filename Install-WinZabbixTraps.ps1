@@ -8,8 +8,15 @@
     embedded as part of the parameters used in the scheduled task actions. The tasks are
     scheduled to run hourly into order to provide data to Zabbix via traps.
     
+    .PARAMETER ZabbixIP
+    The IP address of the Zabbix server/proxy to send the value to.
+    
+    .PARAMETER ComputerName
+    The hostname that should be reported to Zabbix, in case the hostname you set up in
+    Zabbix isn't exactly the same as this computer's name.
+    
     .EXAMPLE
-    Install-WinZabbixTraps.ps1
+    Install-WinZabbixTraps.ps1 -ZabbixIP 10.0.0.240
 
     .NOTES
     Author: Rory Fewell
@@ -21,7 +28,11 @@ Param (
     [Parameter(Position=0, Mandatory=$TRUE)]
     [ValidatePattern("^(\d+\.){3}\d+$")]
     [String]
-    $ZabbixIP
+    $ZabbixIP,
+    [Parameter(Position=1, Mandatory=$FALSE)]
+    [ValidatePattern(".+")]
+    [String]
+    $ComputerName = $env:COMPUTERNAME
 )
 
 $globalTrigger = New-ScheduledTaskTrigger -Daily -At 8am
@@ -29,7 +40,7 @@ $systemPrincipal = New-ScheduledTaskPrincipal -UserID "NT AUTHORITY\SYSTEM" -Log
 
 # Set up WU agent update counter task
 #
-$wuCountAction = New-ScheduledTaskAction -Execute "powershell.exe" -Argument ('-NoProfile -NoLogo -File "' + $env:ProgramFiles + '\Zabbix Agent\WINREPORTS\Get-WUUpdateCount.ps1" -ZabbixIP ' + $ZabbixIP)
+$wuCountAction = New-ScheduledTaskAction -Execute "powershell.exe" -Argument ('-NoProfile -NoLogo -File "' + $env:ProgramFiles + '\Zabbix Agent\WINREPORTS\Get-WUUpdateCount.ps1" -ZabbixIP ' + $ZabbixIP + ' -ComputerName ' + $ComputerName)
 
 $wuCountTask = Register-ScheduledTask -TaskName "Count Windows Updates for Client (Zabbix Trap)" -Trigger $globalTrigger -Action $wuCountAction -Principal $systemPrincipal
 
