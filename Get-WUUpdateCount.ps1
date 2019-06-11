@@ -35,10 +35,12 @@ Param (
     $ComputerName = $env:COMPUTERNAME
 )
 
-$wuAgent = New-Object -ComObject "Microsoft.Update.Session"
-$wuSearcher = $wuAgent.CreateUpdateSearcher()
-$wuResults = $wuSearcher.Search("")
+$wuAgent    = New-Object -ComObject "Microsoft.Update.Session";
+$wuSearcher = $wuAgent.CreateUpdateSearcher();
+$wuResults  = $wuSearcher.Search("");
 
 # Push value to Zabbix
 #
-& ($env:ProgramFiles + "\Zabbix Agent\bin\win64\zabbix_sender.exe") ("-z", $ZabbixIP, "-p", "10051", "-s", $ComputerName, "-k", "wuauclt.count", "-o", $wuResults.Updates.Count)
+$arch = [System.IntPtr]::Size * 8;
+
+& ($env:ProgramFiles + "\Zabbix Agent\bin\win" + $arch + "\zabbix_sender.exe") ("-z", $ZabbixIP, "-p", "10051", "-s", $ComputerName, "-k", "wuauclt.count", "-o", $wuResults.Updates.Count);
