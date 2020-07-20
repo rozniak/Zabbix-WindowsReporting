@@ -35,14 +35,17 @@ Param (
     $ComputerName = $env:COMPUTERNAME
 )
 
-$globalTrigger = New-ScheduledTaskTrigger -Daily -At 8am
+$scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Definition
+
+$globalTrigger   = New-ScheduledTaskTrigger -Daily -At 8am
+$guid            = Get-Content -Path "$scriptRoot\task-guid"
 $systemPrincipal = New-ScheduledTaskPrincipal -UserID "NT AUTHORITY\SYSTEM" -LogonType ServiceAccount -RunLevel Highest
 
 # Set up WU agent update counter task
 #
 $wuCountAction = New-ScheduledTaskAction -Execute "powershell.exe" -Argument ('-NoProfile -NoLogo -File "' + $env:ProgramFiles + '\Zabbix Agent\WINREPORTS\Get-WUUpdateCount.ps1" -ZabbixIP ' + $ZabbixIP + ' -ComputerName ' + $ComputerName)
 
-$wuCountTask = Register-ScheduledTask -TaskName "Count Windows Updates for Client (Zabbix Trap)" -Trigger $globalTrigger -Action $wuCountAction -Principal $systemPrincipal
+$wuCountTask = Register-ScheduledTask -TaskName "Count Windows Updates for Client (Zabbix Trap)" -Trigger $globalTrigger -Action $wuCountAction -Principal $systemPrincipal -Description $guid
 
 $wuCountTask.Triggers[0].Repetition.Interval = "PT1H"
 $wuCountTask | Set-ScheduledTask
