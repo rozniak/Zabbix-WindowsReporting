@@ -27,25 +27,52 @@
 Param (
     [Parameter(Position=0, Mandatory=$TRUE)]
     [ValidatePattern("^(\d+\.){3}\d+$")]
-    [String]
+    [string]
     $ZabbixIP,
     [Parameter(Position=1, Mandatory=$FALSE)]
     [ValidatePattern(".+")]
-    [String]
-    $ComputerName = $env:COMPUTERNAME
+    [string]
+    $ComputerName = $env:COMPUTERNAME,
+    [Parameter(Position=2, Mandatory=$FALSE)]
+    [string]
+    $ZabbixRoot   = $env:ProgramFiles + "\Zabbix Agent"
 )
 
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Definition
 
-$globalTrigger   = New-ScheduledTaskTrigger -Daily -At 8am
-$guid            = Get-Content -Path "$scriptRoot\task-guid"
-$systemPrincipal = New-ScheduledTaskPrincipal -UserID "NT AUTHORITY\SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+$nextHour = [System.DateTime]::Now.AddHours(1);
+$oneHour  = New-TimeSpan -Hours 1;
+
+$globalTrigger = New-ScheduledTaskTrigger -Once                         `
+                                          -At                 $nextHour `
+                                          -RepetitionInterval $oneHour;
+$guid          = Get-Content -Path "$scriptRoot\task-guid"
+$systemAccount = New-ScheduledTaskPrincipal -UserID    "NT AUTHORITY\SYSTEM" `
+                                            -LogonType ServiceAccount        `
+                                            -RunLevel  Highest;
 
 # Set up WU agent update counter task
 #
-$wuCountAction = New-ScheduledTaskAction -Execute "powershell.exe" -Argument ('-NoProfile -NoLogo -File "' + $env:ProgramFiles + '\Zabbix Agent\WINREPORTS\Get-WUUpdateCount.ps1" -ZabbixIP ' + $ZabbixIP + ' -ComputerName ' + $ComputerName)
+$wuCountFilePath = "$ZabbixRoot\WINREPORTS\Get-WUUpdateCount.ps1";
+$wuCountTitle    = "Count Windows Updates for Client (Zabbix Trap)";
 
-$wuCountTask = Register-ScheduledTask -TaskName "Count Windows Updates for Client (Zabbix Trap)" -Trigger $globalTrigger -Action $wuCountAction -Principal $systemPrincipal -Description $guid
+$wuCountActionArgs =
+    (
+        "-NoProfile",
+        "-NoLogo",
+        "-File",
+        "`"$wuCountFilePath`"",
+        "-ZabbixIP",
+        $ZabbixIP,
+        "-ComputerName",
+        $ComputerName
+    ) -join " ";
+$wuCountAction     = New-ScheduledTaskAction -Execute  "powershell.exe"   `
+                                             -Argument $wuCountActionArgs;
 
-$wuCountTask.Triggers[0].Repetition.Interval = "PT1H"
-$wuCountTask | Set-ScheduledTask
+$wuCountTask = Register-ScheduledTask -TaskName    $wuCountTitle  `
+                                      -Trigger     $globalTrigger `
+                                      -Action      $wuCountAction `
+                                      -Principal   $systemAccount `
+                                      -Description $guid          `
+               | Out-Null;
